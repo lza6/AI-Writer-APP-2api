@@ -1,0 +1,28 @@
+[
+  {
+    "concurrency": 2,
+    "requests": 8,
+    "success": 8,
+    "success_rate": 100.0,
+    "rps": 0.17,
+    "wall_s": 46.1,
+    "p50": 12.14,
+    "p90": 12.81,
+    "max": 13.34,
+    "total_tokens": 2078,
+    "errors": {}
+  },
+  {
+    "concurrency": 3,
+    "requests": 8,
+    "success": 8,
+    "success_rate": 100.0,
+    "rps": 0.17,
+    "wall_s": 47.7,
+    "p50": 17.92,
+    "p90": 18.49,
+    "max": 21.01,
+    "total_tokens": 2612,
+    "errors": {}
+  }
+]

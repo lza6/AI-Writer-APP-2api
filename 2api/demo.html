@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Writer 2API · 演示与验证控制台</title>
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#121822; --panel2:#0f151d; --line:#1e2836;
+    --txt:#e6edf5; --dim:#8b9bb0; --acc:#4f9cf9; --ok:#3ecf8e; --warn:#f2b544; --err:#f4636b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.6 -apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.3px}
+  .tag{font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--line);color:var(--dim)}
+  .tag.ok{color:var(--ok);border-color:#1f5c46}
+  .tag.warn{color:var(--warn);border-color:#5c4a1f}
+  main{display:grid;grid-template-columns:minmax(340px,420px) 1fr;gap:0;min-height:calc(100vh - 62px)}
+  @media(max-width:900px){main{grid-template-columns:1fr}}
+  .left{border-right:1px solid var(--line);padding:18px 20px;background:var(--panel2)}
+  .right{padding:18px 20px}
+  label{display:block;font-size:12px;color:var(--dim);margin:12px 0 5px}
+  select,input,textarea,button{font:inherit;color:var(--txt);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%}
+  textarea{resize:vertical;min-height:92px}
+  button{cursor:pointer;background:var(--acc);border-color:var(--acc);color:#04121f;font-weight:600;margin-top:14px}
+  button:disabled{opacity:.55;cursor:not-allowed}
+  button.ghost{background:transparent;color:var(--txt);border-color:var(--line);font-weight:500}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .out{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;min-height:260px;white-space:pre-wrap;word-break:break-word}
+  .meta{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--dim);margin:10px 0 12px}
+  .meta b{color:var(--txt);font-weight:600}
+  .pill{font-size:11px;padding:1px 7px;border-radius:6px;background:#16202c;border:1px solid var(--line)}
+  .pill.ok{color:var(--ok)} .pill.err{color:var(--err)}
+  pre{margin:0;font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow:auto}
+  .tabs{display:flex;gap:6px;margin-bottom:10px}
+  .tabs button{margin:0;flex:1;background:transparent;border:1px solid var(--line);color:var(--dim);font-weight:500;font-size:12px;padding:6px}
+  .tabs button.active{background:var(--panel);color:var(--txt);border-color:var(--acc)}
+  .hint{font-size:11px;color:var(--dim);margin-top:6px}
+  a{color:var(--acc)}
+</style>
+</head>
+<body>
+<header>
+  <h1>AI Writer 2API · 演示与验证控制台</h1>
+  <span class="tag" id="healthTag">检测中…</span>
+  <span class="tag" id="modelTag">模型：—</span>
+  <span class="tag warn">本地伪流式（上游无 SSE）</span>
+</header>
+
+<main>
+  <section class="left">
+    <label>模式</label>
+    <select id="mode">
+      <option value="chat">OpenAI 兼容 /v1/chat/completions</option>
+      <option value="native">原生五功能 /v1/aiwriter/*</option>
+    </select>
+
+    <div id="nativeBox" style="display:none">
+      <label>功能</label>
+      <select id="feature">
+        <option value="writing">writing 写作（→ grammar）</option>
+        <option value="rephrase">rephrase 改写（→ rephrase）</option>
+        <option value="email">email 邮件（→ email_composer）</option>
+        <option value="expand">expand 扩写（→ grammar）</option>
+        <option value="shorten">shorten 缩写（→ grammar）</option>
+      </select>
+      <div class="row">
+        <div><label>语气 tone</label><input id="tone" value="Formal" /></div>
+        <div><label>长度 length</label><input id="length" value="Short" /></div>
+      </div>
+      <div class="row">
+        <div><label>技法 technique</label><input id="technique" value="None" /></div>
+        <div><label>字数上限 level</label><input id="level" value="200" /></div>
+      </div>
+      <label>收件人 receiver（email）</label><input id="receiver" value="the hiring manager" />
+    </div>
+
+    <label>模型</label>
+    <select id="model"></select>
+
+    <label>reasoning_effort（越高越慢越贵）</label>
+    <select id="effort">
+      <option value="minimal">minimal</option>
+      <option value="low">low</option>
+      <option value="medium">medium</option>
+      <option value="high">high</option>
+    </select>
+
+    <label>输入</label>
+    <textarea id="input">Write a short product description for an AI writing assistant that helps people draft emails and essays faster.</textarea>
+
+    <button id="run">发送请求</button>
+    <button id="clear" class="ghost">清空输出</button>
+    <p class="hint">原生模式下「输入」作为 user 正文；写作/扩写会按上游模板自动填充占位符。</p>
+  </section>
+
+  <section class="right">
+    <div class="tabs">
+      <button data-tab="text" class="active">响应文本</button>
+      <button data-tab="json">原始 JSON</button>
+    </div>
+    <div class="meta" id="meta"><span class="pill">尚未请求</span></div>
+    <div class="out" id="textOut">等待请求…</div>
+    <pre id="jsonOut" style="display:none"></pre>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+let current = { text: "", json: "" };
+
+function showTab(name) {
+  document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+  $("#textOut").style.display = name === "text" ? "block" : "none";
+  $("#jsonOut").style.display = name === "json" ? "block" : "none";
+}
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
+$("#mode").onchange = () => { $("#nativeBox").style.display = $("#mode").value === "native" ? "block" : "none"; };
+$("#clear").onclick = () => { current = { text: "", json: "" }; $("#textOut").textContent = "等待请求…"; $("#jsonOut").textContent = ""; $("#meta").innerHTML = '<span class="pill">已清空</span>'; };
+
+async function boot() {
+  try {
+    const h = await (await fetch("/health")).json();
+    $("#healthTag").textContent = h.mock ? "服务正常（MOCK 模式）" : "服务正常（真实上游）";
+    $("#healthTag").className = "tag " + (h.mock ? "warn" : "ok");
+    const m = await (await fetch("/v1/models")).json();
+    const sel = $("#model");
+    sel.innerHTML = m.data.map(x => `<option value="${x.id}">${x.id}</option>`).join("");
+    $("#modelTag").textContent = "模型：" + m.data.map(x => x.id).join(" / ");
+  } catch (e) {
+    $("#healthTag").textContent = "服务不可用：" + e.message;
+    $("#healthTag").className = "tag err";
+  }
+}
+
+$("#run").onclick = async () => {
+  const btn = $("#run");
+  btn.disabled = true; btn.textContent = "请求中…";
+  const t0 = performance.now();
+  try {
+    const model = $("#model").value;
+    const effort = $("#effort").value;
+    const input = $("#input").value;
+    let url, body;
+    if ($("#mode").value === "chat") {
+      url = "/v1/chat/completions";
+      body = { model, messages: [{ role: "user", content: input }], reasoning_effort: effort, max_completion_tokens: 1200 };
+    } else {
+      url = "/v1/aiwriter/" + $("#feature").value;
+      body = {
+        model, reasoning_effort: effort, max_completion_tokens: 1200, text: input,
+        tone: $("#tone").value, length: $("#length").value, technique: $("#technique").value,
+        level: $("#level").value, receiver: $("#receiver").value, content: input, topic: input
+      };
+    }
+    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const dt = Math.round(performance.now() - t0);
+    const data = await r.json();
+    current.json = JSON.stringify(data, null, 2);
+    const ok = r.ok && !data.error;
+    const text = ok
+      ? (data.content ?? data.choices?.[0]?.message?.content ?? "(空响应)")
+      : "错误：" + (data.error?.message ?? r.status);
+    current.text = text;
+    $("#textOut").textContent = text;
+    $("#jsonOut").textContent = current.json;
+    const usage = data.usage || {};
+    $("#meta").innerHTML = [
+      `<span class="pill ${ok ? "ok" : "err"}">${ok ? "200 OK" : "失败"}</span>`,
+      `<span>耗时 <b>${dt} ms</b></span>`,
+      `<span>模型 <b>${data.model || body.model || "-"}</b></span>`,
+      `<span>tokens <b>${usage.total_tokens ?? "-"}</b>（in ${usage.prompt_tokens ?? "-"} / out ${usage.completion_tokens ?? "-"}）</span>`,
+      `<span>端点 <b>${data.upstream_endpoint || "v2/" + ($("#mode").value === "chat" ? "grammar" : "-")}</b></span>`,
+    ].join("");
+  } catch (e) {
+    $("#textOut").textContent = "请求异常：" + e.message;
+    $("#meta").innerHTML = `<span class="pill err">异常</span><span>${e.message}</span>`;
+  } finally {
+    btn.disabled = false; btn.textContent = "发送请求";
+  }
+};
+
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+# 分析原料（不推：体积大且含原始 APK，版权归发行方）
+apk/
+jadx_out/
+manifest_only/
+*.apk
+*.dex
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 运行产物
+*.log
+.env
+.env.local
+
+# 编辑器/系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
